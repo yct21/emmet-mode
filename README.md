@@ -1,3 +1,7 @@
+A class name is expanded to `className={styles.realClassName}` instead of
+`className="realClassName"` when `emmet-expand-jsx-className?` is enabled.
+
+__This is a fork of [Emmet-mode](https://github.com/rooney/zencoding) to support [Emmet](http://emmet.io/)'s feature set.__
 
 __This is a fork of [zencoding-mode](https://github.com/rooney/zencoding) to support [Emmet](http://emmet.io/)'s feature set.__
 

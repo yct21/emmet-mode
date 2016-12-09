@@ -5,7 +5,8 @@
 ;; Copyright (C) 2013-     Shin Aoyama        (@smihica      https://github.com/smihica)
 ;; Copyright (C) 2009-2012 Chris Done
 
-;; Version: 1.0.10
+;; Version: 1.0.9
+;; Package-Version: 20161209.1157
 ;; Author: Shin Aoyama <smihica@gmail.com>
 ;; URL: https://github.com/smihica/emmet-mode
 ;; Last-Updated: 2014-08-11 Mon
@@ -67,7 +68,7 @@
 ;;
 ;;; Code:
 
-(defconst emmet-mode:version "1.0.10")
+(defconst emmet-mode:version "1.0.9")
 
 (with-no-warnings
   (require 'cl))
@@ -593,8 +594,8 @@ See `emmet-preview-online'."
 
 (defun emmet-preview-transformed (indent)
   (let* ((string (buffer-substring-no-properties
-		  (overlay-start emmet-preview-input)
-		  (overlay-end emmet-preview-input))))
+      (overlay-start emmet-preview-input)
+      (overlay-end emmet-preview-input))))
     (let ((output (emmet-transform string)))
       (when output
         output))))
@@ -626,30 +627,30 @@ See `emmet-preview-online'."
                    "\\|"))
        (edit-point (format "\\(%s\\)" whole-regex)))
     (if (> count 0)
-	(progn
-	  (forward-char)
-	  (let
-	      ((search-result (re-search-forward edit-point nil t count)))
-	    (if search-result
-		(progn
-		  (cond
-		   ((match-string 2) (goto-char (- (match-end 2) 1)))
-		   ((match-string 3) (end-of-line))
+  (progn
+    (forward-char)
+    (let
+        ((search-result (re-search-forward edit-point nil t count)))
+      (if search-result
+    (progn
+      (cond
+       ((match-string 2) (goto-char (- (match-end 2) 1)))
+       ((match-string 3) (end-of-line))
                    ((match-string 4) (backward-char)))
-		  (point))
-		(backward-char))))
+      (point))
+    (backward-char))))
       (progn
-	(backward-char)
-	(let
-	    ((search-result (re-search-backward edit-point nil t (- count))))
-	  (if search-result
-	      (progn
-		(cond
-		 ((match-string 2) (goto-char (- (match-end 2) 1)))
-		 ((match-string 3) (end-of-line))
-		 ((match-string 4) (forward-char 2)))
-		(point))
-	      (forward-char)))))))
+  (backward-char)
+  (let
+      ((search-result (re-search-backward edit-point nil t (- count))))
+    (if search-result
+        (progn
+    (cond
+     ((match-string 2) (goto-char (- (match-end 2) 1)))
+     ((match-string 3) (end-of-line))
+     ((match-string 4) (forward-char 2)))
+    (point))
+        (forward-char)))))))
 
 ;;;###autoload
 (defun emmet-wrap-with-markup (wrap-with)
@@ -3382,7 +3383,13 @@ tbl))
   Emmet AST.")
 
 (defvar emmet-expand-jsx-className? nil
-  "Wether to use `className' when expanding `.classes'")
+  "Whether to use `className' when expanding `.classes'")
+
+(defvar emmet-expand-className-in-css-module-format? t
+  "When `emmet-expand-jsx-className?` is true, whether to use css module format.")
+
+(defvar emmet-css-module-prefix "styles."
+  "Prefix of css module variable.")
 
 (emmet-defparameter
  emmet-tag-settings-table
@@ -3507,8 +3514,16 @@ tbl))
        (puthash tag-name fn emmet-tag-snippets-table)))
 
    (let* ((id           (emmet-concat-or-empty " id=\"" tag-id "\""))
-          (class-attr  (if emmet-expand-jsx-className? " className=\"" " class=\""))
-          (classes      (emmet-mapconcat-or-empty class-attr tag-classes " " "\""))
+          (classes      (if emmet-expand-jsx-className?
+                            (if (and emmet-expand-className-in-css-module-format?
+                                     (eq 1 (length tag-classes)))
+                                (emmet-mapconcat-or-empty (concat " className={"
+                                                                  emmet-css-module-prefix)
+                                                          tag-classes
+                                                          " "
+                                                          "}")
+                              (emmet-mapconcat-or-empty  " className=\"" tag-classes "\""))
+                            (emmet-mapconcat-or-empty " class=\"" tag-classes " " "\"")))
           (props        (let* ((tag-props-default
                                 (and settings (gethash "defaultAttr" settings)))
                                (merged-tag-props
@@ -3526,7 +3541,7 @@ tbl))
           (self-closing?      (and (not (or tag-txt content))
                                    (or (not tag-has-body?)
                                        (and settings (gethash "selfClosing" settings)))))
-	  (block-indentation? (or content-multiline? (and block-tag? content)))
+          (block-indentation? (or content-multiline? (and block-tag? content)))
           (lf                 (if block-indentation? "\n")))
      (concat "<" tag-name id classes props
              (if self-closing?
@@ -4011,48 +4026,48 @@ tbl))
   (emmet-join-string
    (mapcar
     #'(lambda (expr)
-        (let* 
-	    ((hash-map (if emmet-use-sass-syntax emmet-sass-snippets emmet-css-snippets))
-	     (basement
-	      (emmet-aif
-	       (or (gethash (car expr) hash-map) (gethash (car expr) emmet-css-snippets))
-	       (let ((set it) (fn nil) (unitlessp nil))
-		 (if (stringp set)
-		     (progn
-		       ;; new pattern
-		       ;; creating print function
-		       (setf fn (emmet-css-instantiate-lambda set))
-		       ;; get unitless or no
-		       (setf unitlessp
-			     (not (null (string-match
-					 emmet-css-unitless-properties-regex set))))
-		       ;; caching
-		       (puthash (car expr) (cons fn unitlessp) hash-map))
-		   (progn
-		     ;; cache hit.
-		     (setf fn (car set))
-		     (setf unitlessp (cdr set))))
-		 (apply fn
-			(mapcar
-			 #'(lambda (arg)
-			     (if (listp arg)
-				 (if unitlessp (car arg)
-				   (apply #'concat arg))
-			       arg))
-			 (cdddr expr))))
-	       (concat (car expr) ": "
-		       (emmet-join-string
-			(mapcar #'(lambda (arg)
-				    (if (listp arg) (apply #'concat arg) arg))
-				(cdddr expr)) " ")
-		       ";"))))
+        (let*
+      ((hash-map (if emmet-use-sass-syntax emmet-sass-snippets emmet-css-snippets))
+       (basement
+        (emmet-aif
+         (or (gethash (car expr) hash-map) (gethash (car expr) emmet-css-snippets))
+         (let ((set it) (fn nil) (unitlessp nil))
+     (if (stringp set)
+         (progn
+           ;; new pattern
+           ;; creating print function
+           (setf fn (emmet-css-instantiate-lambda set))
+           ;; get unitless or no
+           (setf unitlessp
+           (not (null (string-match
+           emmet-css-unitless-properties-regex set))))
+           ;; caching
+           (puthash (car expr) (cons fn unitlessp) hash-map))
+       (progn
+         ;; cache hit.
+         (setf fn (car set))
+         (setf unitlessp (cdr set))))
+     (apply fn
+      (mapcar
+       #'(lambda (arg)
+           (if (listp arg)
+         (if unitlessp (car arg)
+           (apply #'concat arg))
+             arg))
+       (cdddr expr))))
+         (concat (car expr) ": "
+           (emmet-join-string
+      (mapcar #'(lambda (arg)
+            (if (listp arg) (apply #'concat arg) arg))
+        (cdddr expr)) " ")
+           ";"))))
           (let ((line
                  (if (caddr expr)
                      (concat (subseq basement 0 -1) " !important;")
                    basement)))
-	    ;; remove trailing semicolon while editing Sass files
-	    (if (and emmet-use-sass-syntax (equal ";" (subseq line -1)))
-		(setq line (subseq line 0 -1)))
+      ;; remove trailing semicolon while editing Sass files
+      (if (and emmet-use-sass-syntax (equal ";" (subseq line -1)))
+    (setq line (subseq line 0 -1)))
             (emmet-aif
              (cadr expr)
              (emmet-css-transform-vendor-prefixes line it)
